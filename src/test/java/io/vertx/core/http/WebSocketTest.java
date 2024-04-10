@@ -27,6 +27,7 @@ import io.vertx.core.http.impl.ws.WebSocketFrameImpl;
 import io.vertx.core.net.*;
 import io.vertx.core.net.impl.NetSocketInternal;
 import io.vertx.test.core.CheckingSender;
+import io.vertx.test.core.Repeat;
 import io.vertx.test.core.TestUtils;
 import io.vertx.test.core.VertxTestBase;
 import io.vertx.test.proxy.HAProxy;
@@ -2017,6 +2018,7 @@ public class WebSocketTest extends VertxTestBase {
     testRaceConditionWithWebSocketClient(vertx.getOrCreateContext());
   }
 
+  @Repeat(times = 100)
   @Test
   public void testRaceConditionWithWebSocketClientWorker() throws Exception {
     CompletableFuture<Context> fut = new CompletableFuture<>();

@@ -59,7 +59,7 @@ abstract class Http1xConnectionBase<S extends WebSocketImplBase<S>> extends Conn
       w = webSocket;
     }
     if (w != null) {
-      w.context.execute(frame, w::handleFrame);
+      w.handleFrame(frame);
     }
   }
 

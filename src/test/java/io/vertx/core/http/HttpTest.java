@@ -3366,6 +3366,7 @@ public abstract class HttpTest extends HttpTestBase {
     await();
   }
 
+  @Repeat(times = 16)
   @Test
   public void testServerReadStreamInWorker() throws Exception {
     int numReq = 16;
@@ -3378,7 +3379,7 @@ public abstract class HttpTest extends HttpTestBase {
         server.requestHandler(req -> {
           req.end().onComplete(onSuccess(v -> req.response().end()));
           req.pause();
-          vertx.setTimer(250, id -> {
+          vertx.setTimer(10, id -> {
             req.resume();
           });
         }).listen(testAddress)

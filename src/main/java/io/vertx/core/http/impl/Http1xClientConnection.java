@@ -435,7 +435,7 @@ public class Http1xClientConnection extends Http1xConnectionBase<WebSocketImpl> 
       super(context, promise, id);
 
       this.conn = conn;
-      this.queue = new InboundMessageQueue<>(context) {
+      this.queue = new InboundMessageQueue<>(conn.context.nettyEventLoop(), context) {
         @Override
         protected void handleResume() {
           conn.doResume();
