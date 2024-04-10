@@ -445,7 +445,7 @@ public class Http1xClientConnection extends Http1xConnectionBase<WebSocketImpl> 
           conn.doPause();
         }
         @Override
-        protected void handle(Object item) {
+        protected void handleMessage(Object item) {
           if (!reset) {
             if (item instanceof MultiMap) {
               Handler<MultiMap> handler = endHandler;
