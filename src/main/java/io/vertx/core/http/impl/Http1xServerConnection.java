@@ -82,6 +82,7 @@ public class Http1xServerConnection extends Http1xConnectionBase<ServerWebSocket
 
   private Http1xServerRequest requestInProgress;
   private Http1xServerRequest responseInProgress;
+  private Http1xServerRequest pipelinedRequest;
   private boolean wantClose;
   private long shutdownTimerID;
   private Handler<HttpServerRequest> requestHandler;
@@ -173,7 +174,8 @@ public class Http1xServerConnection extends Http1xConnectionBase<ServerWebSocket
       Http1xServerRequest req = new Http1xServerRequest(this, request, requestCtx, parked);
       requestInProgress = req;
       if (parked) {
-        enqueueRequest(req);
+        pipelinedRequest = req;
+        doPause();
         return;
       }
       boolean keepAlive = HttpUtils.isKeepAlive(request);
@@ -185,11 +187,6 @@ public class Http1xServerConnection extends Http1xConnectionBase<ServerWebSocket
     } else {
       handleOther(msg);
     }
-  }
-
-  private void enqueueRequest(Http1xServerRequest req) {
-    // Deferred until the current response completion
-    responseInProgress.enqueue(req);
   }
 
   private void handleOther(Object msg) {
@@ -272,8 +269,9 @@ public class Http1xServerConnection extends Http1xConnectionBase<ServerWebSocket
             // No keep-alive
             flushAndClose();
           } else {
-            Http1xServerRequest next = request.next();
+            Http1xServerRequest next = pipelinedRequest;
             if (next != null) {
+              pipelinedRequest = null;
               // Handle pipelined request
               handleNext(next);
             } else if (wantClose && shutdownTimerID != -1L && vertx.cancelTimer(shutdownTimerID)) {
@@ -297,11 +295,12 @@ public class Http1xServerConnection extends Http1xConnectionBase<ServerWebSocket
     responseInProgress = next;
     wantClose |= !keepAlive;
     next.handleBegin(keepAlive);
+    next.parked = false;
     next.context.emit(next, next_ -> {
       Handler<HttpServerRequest> handler = next_.nettyRequest().decoderResult().isSuccess() ? requestHandler : invalidRequestHandler;
       handler.handle(next_);
-      next_.unpark();
     });
+    doResume();
   }
 
   private void reportResponseComplete() {
