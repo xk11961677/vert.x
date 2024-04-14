@@ -84,7 +84,6 @@ public class Http1xServerConnection extends Http1xConnectionBase<ServerWebSocket
   private Http1xServerRequest responseInProgress;
   private boolean wantClose;
   private long shutdownTimerID;
-  private boolean channelPaused;
   private Handler<HttpServerRequest> requestHandler;
   private Handler<HttpServerRequest> invalidRequestHandler;
 
@@ -303,22 +302,6 @@ public class Http1xServerConnection extends Http1xConnectionBase<ServerWebSocket
       handler.handle(next_);
       next_.unpark();
     });
-  }
-
-  @Override
-  public void doPause() {
-    if (!channelPaused) {
-      channelPaused = true;
-      super.doPause();
-    }
-  }
-
-  @Override
-  public void doResume() {
-    if (channelPaused) {
-      channelPaused = false;
-      super.doResume();
-    }
   }
 
   private void reportResponseComplete() {

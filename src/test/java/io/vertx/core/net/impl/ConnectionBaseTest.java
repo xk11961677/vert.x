@@ -11,15 +11,14 @@
 package io.vertx.core.net.impl;
 
 import io.netty.buffer.Unpooled;
-import io.netty.channel.ChannelDuplexHandler;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.ChannelPromise;
+import io.netty.channel.*;
+import io.netty.channel.embedded.EmbeddedChannel;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.impl.BufferInternal;
 import io.vertx.core.impl.ContextInternal;
+import io.vertx.core.impl.VertxInternal;
 import io.vertx.core.net.NetClient;
 import io.vertx.core.net.NetServer;
 import io.vertx.core.net.NetSocket;
@@ -29,10 +28,12 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ConnectionBaseTest extends VertxTestBase {
 
@@ -393,5 +394,116 @@ public class ConnectionBaseTest extends VertxTestBase {
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
     }
+  }
+
+  private class TestConnection extends ConnectionBase {
+    Handler<Message> handler;
+    public TestConnection(ChannelHandlerContext chctx) {
+      super(((VertxInternal)ConnectionBaseTest.this.vertx)
+        .createEventLoopContext((EventLoop) chctx.executor(), null, null), chctx);
+    }
+    @Override
+    protected void handleMessage(Object msg) {
+      Handler<Message> h = handler;
+      if (h != null) {
+        h.handle((Message) msg);
+      }
+    }
+
+    public void pause() {
+      doPause();
+    }
+
+    public void resume() {
+      chctx.executor().execute(this::doResume);
+    }
+  }
+
+  static class Message {
+    final String id;
+    Message(String id) {
+      this.id = id;
+    }
+  }
+
+  static class MessageFactory {
+    int seq = 0;
+    Message next() {
+      return new Message("msg-" + seq++);
+    }
+    Message[] next(int num) {
+      Message[] messages = new Message[num];
+      for (int i = 0;i < num;i++) {
+        messages[i] = next();
+      }
+      return messages;
+    }
+  }
+
+  @Test
+  public void testDisableAutoReadWhenPaused() {
+    List<Object> receivedMessages = new ArrayList<>();
+    MessageFactory factory = new MessageFactory();
+    EmbeddedChannel ch = new EmbeddedChannel();
+    ChannelPipeline pipeline = ch.pipeline();
+    pipeline.addLast(VertxHandler.create(chctx -> new TestConnection(chctx)));
+    TestConnection connection = (TestConnection) pipeline.get(VertxHandler.class).getConnection();
+    connection.handler = receivedMessages::add;
+    connection.pause();
+    ch.writeInbound((Object[])factory.next(8));
+    assertEquals(Collections.emptyList(), receivedMessages);
+    assertFalse(ch.config().isAutoRead());
+  }
+
+  @Test
+  public void testConsolidatesFlushesWhenResuming() {
+    MessageFactory factory = new MessageFactory();
+    EmbeddedChannel ch = new EmbeddedChannel() {
+    };
+    ChannelPipeline pipeline = ch.pipeline();
+    pipeline.addLast(VertxHandler.create(chctx -> new TestConnection(chctx)));
+    TestConnection connection = (TestConnection) pipeline.get(VertxHandler.class).getConnection();
+    connection.pause();
+    ch.writeInbound((Object[])factory.next(8));
+    assertFalse(ch.config().isAutoRead());
+    connection.resume();
+    assertTrue(ch.hasPendingTasks());
+    connection.handler = msg -> {
+      connection.writeToChannel(msg);
+      // Try to consume the messages (if it was flushed)
+      while (ch.readOutbound() != null) {
+
+      }
+    };
+    ch.runPendingTasks();
+    List<Object> flushed = new ArrayList<>();
+    Object outbound;
+    while ((outbound = ch.readOutbound()) != null) {
+      flushed.add(outbound);
+    }
+    assertEquals(8, flushed.size());
+    assertTrue(ch.config().isAutoRead());
+  }
+
+  @Test
+  public void testPauseWhenResuming() {
+    MessageFactory factory = new MessageFactory();
+    EmbeddedChannel ch = new EmbeddedChannel() {
+    };
+    ChannelPipeline pipeline = ch.pipeline();
+    pipeline.addLast(VertxHandler.create(chctx -> new TestConnection(chctx)));
+    TestConnection connection = (TestConnection) pipeline.get(VertxHandler.class).getConnection();
+    connection.pause();
+    ch.writeInbound((Object[])factory.next(4));
+    connection.resume();
+    assertTrue(ch.hasPendingTasks());
+    AtomicInteger count = new AtomicInteger();
+    connection.handler = event -> {
+      if (count.incrementAndGet() == 2) {
+        connection.pause();
+      }
+    };
+    ch.runPendingTasks();
+    assertEquals(2, count.get());
   }
 }

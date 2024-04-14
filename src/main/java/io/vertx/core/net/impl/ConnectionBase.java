@@ -39,7 +39,9 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.InetSocketAddress;
 import java.security.cert.Certificate;
+import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.List;
 import java.util.function.Predicate;
 
@@ -94,6 +96,9 @@ public abstract class ConnectionBase {
   private boolean closed;
   private boolean draining;
   private boolean channelWritable;
+  private boolean paused;
+  private Deque<Object> pending;
+  private boolean autoRead;
 
   protected ConnectionBase(ContextInternal context, ChannelHandlerContext chctx) {
     this.vertx = context.owner();
@@ -160,6 +165,19 @@ public abstract class ConnectionBase {
     read = true;
     if (METRICS_ENABLED) {
       reportBytesRead(msg);
+    }
+    // SHOULD BE IN VERT HANDLER ????
+    // SHOULD COOP WITH READ COMPLETE ?
+    if (paused) {
+      if (pending == null) {
+        pending = new ArrayDeque<>();
+      }
+      pending.add(msg);
+      if (pending.size() >= 8) {
+        autoRead = false;
+        chctx.channel().config().setAutoRead(false);
+      }
+      return;
     }
     handleMessage(msg);
   }
@@ -310,12 +328,33 @@ public abstract class ConnectionBase {
     return exceptionHandler;
   }
 
-  public void doPause() {
-    chctx.channel().config().setAutoRead(false);
+  public final void doPause() {
+    assert chctx.executor().inEventLoop();
+    paused = true;
   }
 
-  public void doResume() {
-    chctx.channel().config().setAutoRead(true);
+  public final void doResume() {
+    assert chctx.executor().inEventLoop();
+    if (!paused) {
+      return;
+    }
+    paused = false;
+    if (pending != null) {
+      assert !read;
+      read = true;
+      try {
+        Object msg;
+        while (!paused && (msg = pending.poll()) != null) {
+          handleMessage(msg);
+        }
+      } finally {
+        endReadAndFlush();
+        if (pending.isEmpty() && !autoRead) {
+          autoRead = true;
+          chctx.channel().config().setAutoRead(true);
+        }
+      }
+    }
   }
 
   public void doSetWriteQueueMaxSize(int size) {
@@ -346,7 +385,9 @@ public abstract class ConnectionBase {
     return metric;
   }
 
-  public abstract NetworkMetrics metrics();
+  public NetworkMetrics metrics() {
+    return null;
+  }
 
   protected void handleException(Throwable t) {
     NetworkMetrics metrics = metrics();
