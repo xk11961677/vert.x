@@ -170,10 +170,10 @@ public class Http1xServerConnection extends Http1xConnectionBase<ServerWebSocket
       // fast path type check vs concrete class
       DefaultHttpRequest request = (DefaultHttpRequest) msg;
       ContextInternal requestCtx = streamContextSupplier.get();
-      boolean parked = responseInProgress != null;
       Http1xServerRequest req = new Http1xServerRequest(this, request, requestCtx);
       requestInProgress = req;
-      if (parked) {
+      if (responseInProgress != null) {
+        assert pipelinedRequest == null;
         pipelinedRequest = req;
         doPause();
         return;

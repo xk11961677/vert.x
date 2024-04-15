@@ -166,8 +166,6 @@ public abstract class ConnectionBase {
     if (METRICS_ENABLED) {
       reportBytesRead(msg);
     }
-    // SHOULD BE IN VERT HANDLER ????
-    // SHOULD COOP WITH READ COMPLETE ?
     if (paused) {
       if (pending == null) {
         pending = new ArrayDeque<>();
