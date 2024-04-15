@@ -30,8 +30,6 @@ import io.vertx.core.http.impl.headers.HeadersAdaptor;
 import io.vertx.core.impl.ContextInternal;
 import io.vertx.core.impl.VertxInternal;
 import io.vertx.core.impl.future.PromiseInternal;
-import io.vertx.core.impl.logging.Logger;
-import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.core.net.HostAndPort;
 import io.vertx.core.net.NetSocket;
 import io.vertx.core.net.SocketAddress;
@@ -63,12 +61,6 @@ import static io.vertx.core.spi.metrics.Metrics.METRICS_ENABLED;
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
 public class Http1xServerRequest extends HttpServerRequestInternal implements io.vertx.core.spi.observability.HttpRequest {
-
-  private static final Logger log = LoggerFactory.getLogger(Http1xServerRequest.class);
-
-  private static final int ST_PENDING = 0;
-  private static final int ST_IN_PROGRESS = 1;
-  private static final int ST_ENDED = 2;
 
   private final Http1xServerConnection conn;
   final ContextInternal context;
@@ -103,13 +95,11 @@ public class Http1xServerRequest extends HttpServerRequestInternal implements io
   private boolean ended;
   private long bytesRead;
   private final InboundMessageQueue<Object> queue;
-  boolean parked;
 
-  Http1xServerRequest(Http1xServerConnection conn, HttpRequest request, ContextInternal context, boolean parked) {
+  Http1xServerRequest(Http1xServerConnection conn, HttpRequest request, ContextInternal context) {
     this.conn = conn;
     this.context = context;
     this.request = request;
-    this.parked = parked;
     this.queue = new InboundMessageQueue<>(context.nettyEventLoop(), context) {
       @Override
       protected void handleMessage(Object elt) {
@@ -155,9 +145,6 @@ public class Http1xServerRequest extends HttpServerRequestInternal implements io
 
   void handleContent(Buffer buffer) {
     boolean drain = queue.add(buffer);
-    if (parked) {
-      throw new IllegalStateException();
-    }
     if (drain) {
       queue.drain();
     }
@@ -165,9 +152,6 @@ public class Http1xServerRequest extends HttpServerRequestInternal implements io
 
   void handleEnd() {
     boolean drain = queue.add(InboundBuffer.END_SENTINEL);
-    if (parked) {
-      throw new IllegalStateException();
-    }
     if (drain) {
       queue.drain();
     }
@@ -330,28 +314,13 @@ public class Http1xServerRequest extends HttpServerRequestInternal implements io
 
   @Override
   public HttpServerRequest pause() {
-    synchronized (conn) {
-      if (ended) {
-        return this;
-      }
-    }
     queue.pause();
     return this;
   }
 
   @Override
   public HttpServerRequest fetch(long amount) {
-    if (amount < 0L) {
-      throw new UnsupportedOperationException();
-    }
-    if (amount > 0L) {
-      synchronized (conn) {
-        if (ended) {
-          return this;
-        }
-      }
-      queue.fetch(amount);
-    }
+    queue.fetch(amount);
     return this;
   }
 

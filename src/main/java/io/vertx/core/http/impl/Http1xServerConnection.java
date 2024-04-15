@@ -171,7 +171,7 @@ public class Http1xServerConnection extends Http1xConnectionBase<ServerWebSocket
       DefaultHttpRequest request = (DefaultHttpRequest) msg;
       ContextInternal requestCtx = streamContextSupplier.get();
       boolean parked = responseInProgress != null;
-      Http1xServerRequest req = new Http1xServerRequest(this, request, requestCtx, parked);
+      Http1xServerRequest req = new Http1xServerRequest(this, request, requestCtx);
       requestInProgress = req;
       if (parked) {
         pipelinedRequest = req;
@@ -295,7 +295,6 @@ public class Http1xServerConnection extends Http1xConnectionBase<ServerWebSocket
     responseInProgress = next;
     wantClose |= !keepAlive;
     next.handleBegin(keepAlive);
-    next.parked = false;
     next.context.emit(next, next_ -> {
       Handler<HttpServerRequest> handler = next_.nettyRequest().decoderResult().isSuccess() ? requestHandler : invalidRequestHandler;
       handler.handle(next_);
