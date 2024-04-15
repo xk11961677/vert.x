@@ -220,14 +220,18 @@ public class Http1xServerConnection extends Http1xConnectionBase<ServerWebSocket
     tryClose = wantClose && responseInProgress == null;
     request.handleEnd();
     if (tryClose) {
-      if (shutdownTimerID != -1L) {
-        if (!vertx.cancelTimer(shutdownTimerID)) {
-          return;
-        }
-        shutdownTimerID = -1L;
-      }
-      flushAndClose();
+      tryClose();
     }
+  }
+
+  private void tryClose() {
+    if (shutdownTimerID != -1L) {
+      if (!vertx.cancelTimer(shutdownTimerID)) {
+        return;
+      }
+      shutdownTimerID = -1L;
+    }
+    flushAndClose();
   }
 
   private void flushAndClose() {
