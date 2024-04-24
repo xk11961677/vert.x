@@ -53,6 +53,7 @@ class ServerChannelLoadBalancer extends ChannelInitializer<Channel> {
 
   @Override
   protected void initChannel(Channel ch) {
+    // todo read-source-code每个NioSocketChannel会获取个handler
     Handler<Channel> handler = chooseInitializer(ch.eventLoop());
     if (handler == null) {
       ch.close();

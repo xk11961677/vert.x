@@ -50,6 +50,7 @@ public class TaskQueue {
   private void run() {
     for (; ; ) {
       final ExecuteTask execute;
+      // todo read-source-code，这里worker线程执行时，获取task锁对象，会造成事件线程无法像队列添加数据(几乎没消耗)
       synchronized (tasks) {
         Task task = tasks.poll();
         if (task == null) {
@@ -64,6 +65,7 @@ public class TaskQueue {
           return;
         }
         execute = (ExecuteTask) task;
+        // todo read-source-code，此处如果不是相同workerPoolExecutor会将重新放到队列头部，切换其它线程执行。影响性能地点。
         if (execute.exec != currentExecutor) {
           tasks.addFirst(execute);
           execute.exec.execute(runner);
@@ -143,6 +145,7 @@ public class TaskQueue {
    */
   public void execute(Runnable task, Executor executor) {
     synchronized (tasks) {
+      // todo read-source-code，这里如果worker线程在执行，就会加入队列，顺序执行。(此处影响并发性能)
       if (currentExecutor == null) {
         currentExecutor = executor;
         try {
@@ -152,6 +155,7 @@ public class TaskQueue {
           throw e;
         }
       }
+
       // Add the task after the runner has been accepted to the executor
       // to cover the case of a rejected execution exception.
       tasks.add(new ExecuteTask(task, executor));

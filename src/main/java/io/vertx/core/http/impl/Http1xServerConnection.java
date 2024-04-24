@@ -170,7 +170,10 @@ public class Http1xServerConnection extends Http1xConnectionBase<ServerWebSocket
         responseInProgress = requestInProgress;
         keepAlive = HttpUtils.isKeepAlive(request);
         req.handleBegin(writable, keepAlive);
+
+        // todo read-source-code，这里的requestHandler处理器为 Http1xServerRequestHandler , 由HttpServerConnectionHandler.handle创建且绑定
         Handler<HttpServerRequest> handler = request.decoderResult().isSuccess() ? requestHandler : invalidRequestHandler;
+        // todo read-source-code，当前线程为事件循环线程，但是req.context是worker模式
         req.context.emit(req, handler);
     } else {
       handleOther(msg);
@@ -231,6 +234,7 @@ public class Http1xServerConnection extends Http1xConnectionBase<ServerWebSocket
   }
 
   void responseComplete() {
+    // todo read-source-code，相同的连接，只有响应后才能继续处理放到taskQueue后由worker线程消费
     EventLoop eventLoop = context.nettyEventLoop();
     if (eventLoop.inEventLoop()) {
       if (METRICS_ENABLED) {

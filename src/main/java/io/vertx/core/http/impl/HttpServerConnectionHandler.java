@@ -56,11 +56,16 @@ public class HttpServerConnectionHandler implements Handler<HttpServerConnection
 
   @Override
   public void handle(HttpServerConnection conn) {
+    // todo read-source-code 入参conn为Http1xServerConnection , 由HttpServerWorker.configureHttp1Handler 的方法创建
+
+
+    // todo read-source-code这里requestHandler由 HttpServerImpl 类创建
     Handler<HttpServerRequest> requestHandler = this.requestHandler;
     if (HttpServerImpl.DISABLE_WEBSOCKETS) {
       // As a performance optimisation you can set a system property to disable WebSockets altogether which avoids
       // some casting and a header check
     } else {
+      // todo read-source-code会进入这里
       if (conn instanceof Http1xServerConnection) {
         requestHandler =  new Http1xServerRequestHandler(this);
         Http1xServerConnection c = (Http1xServerConnection) conn;
@@ -70,11 +75,13 @@ public class HttpServerConnectionHandler implements Handler<HttpServerConnection
     conn.exceptionHandler(exceptionHandler);
     conn.handler(requestHandler);
     conn.invalidRequestHandler(invalidRequestHandler);
+    // todo read-source-code不会进入
     if (connectionHandler != null) {
       // We hand roll event-loop execution in case of a worker context
       ContextInternal ctx = conn.getContext();
       ContextInternal prev = ctx.beginDispatch();
       try {
+        // todo read-source-code, 这个现在是null
         connectionHandler.handle(conn);
       } catch (Exception e) {
         ctx.reportException(e);

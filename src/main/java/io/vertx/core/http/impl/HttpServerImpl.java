@@ -136,15 +136,18 @@ public class HttpServerImpl extends TCPServerBase implements HttpServer, Closeab
 
   @Override
   protected BiConsumer<Channel, SslChannelProvider> childHandler(ContextInternal context, SocketAddress address, GlobalTrafficShapingHandler trafficShapingHandler) {
+    // todo read-source-code ，context是worker的
     ContextInternal connContext;
     if (context.isEventLoopContext()) {
       connContext = context;
     } else {
+      // todo read-source-code ，这里会执行
       connContext = vertx.createEventLoopContext(context.nettyEventLoop(), context.workerPool(), context.classLoader());
     }
     String host = address.isInetSocket() ? address.host() : "localhost";
     int port = address.port();
     String serverOrigin = (options.isSsl() ? "https" : "http") + "://" + host + ":" + port;
+    // todo read-source-code ， requestStream.handler是 routerImpl
     HttpServerConnectionHandler hello = new HttpServerConnectionHandler(this, requestStream.handler, invalidRequestHandler, wsStream.handler, connectionHandler, exceptionHandler == null ? DEFAULT_EXCEPTION_HANDLER : exceptionHandler);
     Supplier<ContextInternal> streamContextSupplier = context::duplicate;
     return new HttpServerWorker(

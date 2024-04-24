@@ -120,6 +120,7 @@ public class Http1xUpgradeToH2CHandler extends ChannelInboundHandlerAdapter {
           ctx.writeAndFlush(res);
         }
       } else {
+        // todo read-source-code这里会触发
         initializer.configureHttp1Handler(ctx.pipeline(), sslChannelProvider);
         ctx.fireChannelRead(msg);
         ctx.pipeline().remove(this);

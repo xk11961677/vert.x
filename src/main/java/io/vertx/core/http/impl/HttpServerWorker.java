@@ -189,6 +189,7 @@ public class HttpServerWorker implements BiConsumer<Channel, SslChannelProvider>
               configureHttp2(ctx.pipeline());
             } else {
               configureHttp1Pipeline(ctx.pipeline());
+              // todo read-source-code这里会注册handler
               configureHttp1OrH2CUpgradeHandler(ctx.pipeline(), sslChannelProvider);
             }
           }
@@ -315,6 +316,7 @@ public class HttpServerWorker implements BiConsumer<Channel, SslChannelProvider>
       return;
     }
     HttpServerMetrics metrics = (HttpServerMetrics) server.getMetrics();
+    // todo read-source-code这里是worker线程池前最后的处理器
     VertxHandler<Http1xServerConnection> handler = VertxHandler.create(chctx -> {
       Http1xServerConnection conn = new Http1xServerConnection(
         streamContextSupplier,
@@ -331,6 +333,8 @@ public class HttpServerWorker implements BiConsumer<Channel, SslChannelProvider>
     if (metrics != null) {
       conn.metric(metrics.connected(conn.remoteAddress(), conn.remoteName()));
     }
+    // todo read-source-code, 这里只是将给上边的conn绑定handler
+    // todo read-source-code, connectionHandler是 HttpServerConnectionHandler , 由HttpServerImpl.childHandler构建
     connectionHandler.handle(conn);
   }
 

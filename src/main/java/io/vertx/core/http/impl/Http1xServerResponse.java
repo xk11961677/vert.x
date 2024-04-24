@@ -418,6 +418,7 @@ public class Http1xServerResponse implements HttpServerResponse, HttpResponse {
   }
 
   private void end(Buffer chunk, PromiseInternal<Void> listener) {
+    // todo read-source-code ，响应数据写入
     synchronized (conn) {
       if (written) {
         throw new IllegalStateException(RESPONSE_WRITTEN);

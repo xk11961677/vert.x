@@ -38,6 +38,7 @@ public class Http1xServerRequestHandler implements Handler<HttpServerRequest> {
   @Override
   public void handle(HttpServerRequest req) {
     Handler<ServerWebSocket> wsHandler = handlers.wsHandler;
+    // todo read-source-code这里的requestHandler是routerImpl , 由HttpServerConnectionHandler类的requestHandler
     Handler<HttpServerRequest> reqHandler = handlers.requestHandler;
     if (wsHandler != null ) {
       if (req.headers().contains(UPGRADE, WEBSOCKET, true) && handlers.server.wsAccept()) {
@@ -64,6 +65,7 @@ public class Http1xServerRequestHandler implements Handler<HttpServerRequest> {
       req.response().setStatusCode(501).end();
       req.response().close();
     } else {
+      // todo read-source-code这里的requestHandler是routerImpl
       reqHandler.handle(req);
     }
   }
